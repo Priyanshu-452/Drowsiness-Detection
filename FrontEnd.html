@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drowsiness Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        video {
+            width: 320px;
+            height: 240px;
+            border: 2px solid black;
+        }
+        #status {
+            font-size: 20px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <audio id="alarm" src="./alarm.mpeg"></audio>
+    <h1>Drowsiness Detection System</h1>
+    <video id="video" autoplay></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <p id="status">Status: Waiting...</p>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const statusText = document.getElementById('status');
+
+        // Access the webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                startDetection(); // Start the automatic detection when webcam is ready
+            })
+            .catch(err => console.error("Error accessing webcam:", err));
+
+        function captureImage() {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const imageData = canvas.toDataURL('image/jpeg'); // Convert canvas to base64 image
+            sendImage(imageData);
+        }
+
+        function sendImage(imageData) {
+            fetch('http://127.0.0.1:5000/detect-drowsiness', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageData })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.drowsy) {
+                    statusText.innerHTML = "Status: <span style='color:red;'>Drowsy Detected! ⚠️</span>";
+                    setTimeout(()=>{
+                        document.getElementById("alarm").play();
+                    },3000);
+                } else {
+                    statusText.innerHTML = "Status: <span style='color:green;'>Eyes are open ✅</span>";
+                    document.getElementById("alarm").pause();
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                statusText.innerHTML = "Status: <span style='color:red;'>Error</span>";
+            });
+        }
+        function startDetection() {
+            setInterval(() => {
+                captureImage();
+            }, 500); 
+        }
+    </script>
+</body>
+</html>
